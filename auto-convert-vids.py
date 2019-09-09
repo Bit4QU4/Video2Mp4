@@ -8,6 +8,7 @@ import zipfile
 import shutil
 import ctypes
 import datetime
+import filetype
 #Set variables
 directory = input("Directory to Convert: ")
 
@@ -30,8 +31,10 @@ class VidConvert:
         print("Files Converted: " + str(count))
         #iterate through files in directory specified
         for filename in os.listdir(directory):
+            if os.path.isdir(filename):
+                print('dir found, skiping')
             #if statements to catch files that are already mp4
-            if fnmatch.fnmatch(filename, '*_converted.mp4'):
+            elif fnmatch.fnmatch(filename, '*_converted.mp4'):
                 done = (filename + " Already Done")
                 VidConvert.logger(done,directory)
             elif fnmatch.fnmatch(filename, '*.mp4'):
@@ -41,19 +44,23 @@ class VidConvert:
                 zip_there = ("Folder Already Contains an Output Zip, operation done?")
                 VidConvert.logger(zip_there,directory)
                 sys.exit()
-            #does actual conversion here per file
+            elif filetype.guess(filename) == None:
+                print('unable to determine if file is video type')
+            elif "video" in filetype.guess(filename).mime:
+                 input = str(os.path.abspath(directory)) + '\\' + str(os.path.basename(filename))
+                 output = str(os.path.abspath(directory)) + '\\' + str(os.path.splitext(filename)[0]) + '_converted.mp4'
+                 #calls the converting function
+                 VidConvert.ffmpeg_convert(input,output)
+                 #sends converted files to a centeral zip file
+                 VidConvert.ZipUp(str(os.path.splitext(filename)[0]) + '_converted.mp4',directory)
+                 #updates the count set earlier, keep track of how many files have been Converted
+                 count = count + 1
+                 #logs some output
+                 VidConvert.logger("File Selected-" + input,directory)
+                 VidConvert.logger("Current Count of File-" + str(count),directory)
+                 VidConvert.logger("File Finished Converting",directory)
             else:
-                input = str(os.path.abspath(directory)) + '\\' + str(os.path.basename(filename))
-                output = str(os.path.abspath(directory)) + '\\' + str(os.path.splitext(filename)[0]) + '_converted.mp4'
-                #calls the converting function
-                VidConvert.ffmpeg_convert(input,output)
-                #sends converted files to a centeral zip file
-                VidConvert.ZipUp(str(os.path.splitext(filename)[0]) + '_converted.mp4',directory)
-                #updates the count set earlier, keep track of how many files have been Converted
-                count = count + 1
-                #logs some output
-                VidConvert.logger("File Selected-" + input,directory)
-                VidConvert.logger("Current Count of File-" + str(count),directory)
+                print('File not video/ unrecognizable')
         #makes a message box to inform user that task has been completed
         ctypes.windll.user32.MessageBoxW(0, "Done, Files Converted: " + str(count), "Conversion Complete", 0x40 | 0x0)
     #Cleans up left over files after they are coppied to the zipfile
@@ -64,7 +71,7 @@ class VidConvert:
             elif fnmatch.fnmatch(filename, 'log_*.txt'):
                 os.remove(filename)
             else:
-                print(str(filename)+" not a converted file")
+                print("File Untouched :" + filename)
     #Zips whatever is given as input and appends to 'Convert_of_' file
     def ZipUp(input,directory):
         zip = zipfile.ZipFile('Convert_of_'+ str(os.path.basename(directory)) +'.zip','a')
